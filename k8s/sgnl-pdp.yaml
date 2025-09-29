@@ -1,0 +1,61 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sgnl-pdp-service
+  labels:
+    app: sgnl-pdp-service
+spec:
+  ports:
+    - port: 8082
+      targetPort: 8082
+      protocol: TCP
+      name: http
+  selector:
+    app: sgnl-pdp-service
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sgnl-pdp-service
+  labels:
+    app: sgnl-pdp-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sgnl-pdp-service
+  template:
+    metadata:
+      labels:
+        app: sgnl-pdp-service
+      annotations:
+        # Disable Consul Connect injection for infrastructure services
+        "consul.hashicorp.com/connect-inject": "false"
+    spec:
+      containers:
+        - name: sgnl-pdp-service
+          image: gcr.io/PROJECT_ID/sgnl-pdp-service:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8082
+              name: http
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8082
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8082
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "100m"
+            limits:
+              memory: "128Mi"
+              cpu: "200m"

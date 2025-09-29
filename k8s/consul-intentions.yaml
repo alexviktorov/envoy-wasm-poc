@@ -1,0 +1,21 @@
+# Consul Service Intentions
+# These define which services can communicate in the mesh
+# Service mesh level authorization (mTLS identity)
+
+---
+apiVersion: consul.hashicorp.com/v1alpha1
+kind: ServiceIntentions
+metadata:
+  name: service-b-intentions
+spec:
+  destination:
+    name: service-b
+  sources:
+    # Allow service-a to connect to service-b
+    - name: service-a
+      action: allow
+      description: "Allow service-a to call service-b"
+    # Deny all other services by default
+    - name: "*"
+      action: deny
+      description: "Deny all other services"
