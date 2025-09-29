@@ -42,6 +42,16 @@ This project demonstrates a complete Policy Enforcement Point (PEP) implementati
 
 ## Prerequisites
 
+### For Local Testing (Docker Compose)
+
+- Docker Desktop or Docker Engine
+- `docker compose`
+- `go` >= 1.21
+- `tinygo` >= 0.30
+- `curl` and `jq` (for testing)
+
+### For GKE Deployment
+
 - `gcloud` CLI configured with appropriate project and credentials
 - `terraform` >= 1.0
 - `kubectl`
@@ -97,6 +107,37 @@ This project demonstrates a complete Policy Enforcement Point (PEP) implementati
 ```
 
 ## Quick Start
+
+### Option 1: Local Testing (Recommended for Development)
+
+**See [LOCAL_TESTING.md](LOCAL_TESTING.md) for detailed instructions.**
+
+```bash
+# 1. Build WASM modules
+./scripts/build.sh
+
+# 2. Start all services with Docker Compose
+docker compose up --build -d
+
+# 3. Run tests
+./scripts/test-local.sh --all
+
+# 4. View logs
+docker compose logs -f
+
+# 5. Cleanup
+docker compose down
+```
+
+This approach:
+- ✅ No GCP account needed
+- ✅ Runs entirely locally
+- ✅ Fast iteration cycle
+- ✅ Uses Envoy proxies with WASM filters
+- ⚠️  No Consul service mesh (standalone Envoy instead)
+- ⚠️  No mTLS between services
+
+### Option 2: Full GKE Deployment
 
 ### 1. Set Up Infrastructure
 

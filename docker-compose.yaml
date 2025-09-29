@@ -1,0 +1,105 @@
+# Docker Compose for local testing without GKE
+# This simulates the service mesh environment locally using Envoy proxies
+
+version: '3.8'
+
+services:
+  # JWT Vending Service - issues tokens
+  jwt-vending-service:
+    build:
+      context: ./services/jwt-vending
+      dockerfile: Dockerfile
+    ports:
+      - "8081:8081"
+    networks:
+      - wasm-pep-demo
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8081/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+
+  # SGNL PDP Service - policy decisions
+  sgnl-pdp-service:
+    build:
+      context: ./services/sgnl-pdp
+      dockerfile: Dockerfile
+    ports:
+      - "8082:8082"
+    networks:
+      - wasm-pep-demo
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8082/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+
+  # Service A - client service (behind Envoy proxy)
+  service-a:
+    build:
+      context: ./services/service-a
+      dockerfile: Dockerfile
+    environment:
+      - SERVICE_ID=service-a
+      - JWT_VENDING_URL=http://jwt-vending-service:8081
+      - SERVICE_B_URL=http://envoy-service-a:10000  # Via local Envoy
+    networks:
+      - wasm-pep-demo
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+
+  # Envoy proxy for Service A (with client WASM filter)
+  envoy-service-a:
+    image: envoyproxy/envoy:v1.28-latest
+    ports:
+      - "8080:8080"   # External access
+      - "10000:10000" # Outbound to service-b
+      - "9901:9901"   # Admin interface
+    volumes:
+      - ./local/envoy-service-a.yaml:/etc/envoy/envoy.yaml:ro
+      - ./wasm/client-filter/client-filter.wasm:/etc/envoy/client-filter.wasm:ro
+    command: ["/usr/local/bin/envoy", "-c", "/etc/envoy/envoy.yaml", "--log-level", "debug"]
+    depends_on:
+      - service-a
+      - jwt-vending-service
+    networks:
+      - wasm-pep-demo
+
+  # Service B - server service (behind Envoy proxy)
+  service-b:
+    build:
+      context: ./services/service-b
+      dockerfile: Dockerfile
+    environment:
+      - SERVICE_ID=service-b
+    networks:
+      - wasm-pep-demo
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8083/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+
+  # Envoy proxy for Service B (with server WASM filter)
+  envoy-service-b:
+    image: envoyproxy/envoy:v1.28-latest
+    ports:
+      - "8083:8083"   # External access (for testing)
+      - "10001:10001" # Inbound from service-a
+      - "9902:9901"   # Admin interface
+    volumes:
+      - ./local/envoy-service-b.yaml:/etc/envoy/envoy.yaml:ro
+      - ./wasm/server-filter/server-filter.wasm:/etc/envoy/server-filter.wasm:ro
+    command: ["/usr/local/bin/envoy", "-c", "/etc/envoy/envoy.yaml", "--log-level", "debug"]
+    depends_on:
+      - service-b
+      - sgnl-pdp-service
+    networks:
+      - wasm-pep-demo
+
+networks:
+  wasm-pep-demo:
+    driver: bridge

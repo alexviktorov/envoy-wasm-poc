@@ -1,0 +1,111 @@
+# Envoy configuration for Service B (server side)
+# Includes server WASM filter for JWT validation and PDP enforcement
+
+static_resources:
+  listeners:
+    # Listener for inbound traffic (from service-a)
+    - name: listener_inbound
+      address:
+        socket_address:
+          address: 0.0.0.0
+          port_value: 10001
+      filter_chains:
+        - filters:
+            - name: envoy.filters.network.http_connection_manager
+              typed_config:
+                "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+                stat_prefix: inbound_http
+                codec_type: AUTO
+                route_config:
+                  name: inbound_route
+                  virtual_hosts:
+                    - name: service_b
+                      domains: ["*"]
+                      routes:
+                        - match:
+                            prefix: "/"
+                          route:
+                            cluster: service_b_cluster
+                http_filters:
+                  # Server WASM filter - validates JWT and calls PDP
+                  - name: envoy.filters.http.wasm
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
+                      config:
+                        name: "server_filter"
+                        root_id: "server_filter"
+                        vm_config:
+                          vm_id: "server_filter_vm"
+                          runtime: "envoy.wasm.runtime.v8"
+                          code:
+                            local:
+                              filename: "/etc/envoy/server-filter.wasm"
+                          allow_precompiled: true
+                  - name: envoy.filters.http.router
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+
+    # Listener for direct access (testing only)
+    - name: listener_external
+      address:
+        socket_address:
+          address: 0.0.0.0
+          port_value: 8083
+      filter_chains:
+        - filters:
+            - name: envoy.filters.network.http_connection_manager
+              typed_config:
+                "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+                stat_prefix: external_http
+                codec_type: AUTO
+                route_config:
+                  name: external_route
+                  virtual_hosts:
+                    - name: service_b
+                      domains: ["*"]
+                      routes:
+                        - match:
+                            prefix: "/"
+                          route:
+                            cluster: service_b_cluster
+                http_filters:
+                  - name: envoy.filters.http.router
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+
+  clusters:
+    # Service B application cluster
+    - name: service_b_cluster
+      connect_timeout: 5s
+      type: STRICT_DNS
+      lb_policy: ROUND_ROBIN
+      load_assignment:
+        cluster_name: service_b_cluster
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: service-b
+                      port_value: 8083
+
+    # SGNL PDP Service cluster (for WASM filter)
+    - name: sgnl-pdp-service
+      connect_timeout: 5s
+      type: STRICT_DNS
+      lb_policy: ROUND_ROBIN
+      load_assignment:
+        cluster_name: sgnl-pdp-service
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: sgnl-pdp-service
+                      port_value: 8082
+
+admin:
+  address:
+    socket_address:
+      address: 0.0.0.0
+      port_value: 9901
