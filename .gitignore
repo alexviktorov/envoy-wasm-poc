@@ -13,8 +13,18 @@ dist/
 # Go workspace file
 go.work
 
+# Go build artifacts
+services/*/jwt-vending-service
+services/*/sgnl-pdp-service
+services/*/service-a
+services/*/service-b
+
 # WASM build artifacts
 *.wasm
+
+# Rust build artifacts
+wasm/*/target/
+wasm/*/Cargo.lock
 
 # Terraform
 .terraform/
@@ -22,6 +32,13 @@ go.work
 *.tfstate.*
 .terraform.lock.hcl
 terraform.tfvars
+
+# Kubernetes secrets
+k8s/*-secret.yaml
+k8s/secrets/
+
+# Docker
+.dockerignore
 
 # IDE
 .vscode/
@@ -40,3 +57,7 @@ Thumbs.db
 # Temporary files
 tmp/
 temp/
+
+# Dependencies
+vendor/
+node_modules/
