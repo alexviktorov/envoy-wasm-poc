@@ -42,7 +42,6 @@ func (*pluginContext) NewHttpContext(contextID uint32) types.HttpContext {
 type httpContext struct {
 	types.DefaultHttpContext
 	contextID uint32
-	calloutID uint32
 	token     string
 }
 
@@ -82,12 +81,14 @@ func (ctx *httpContext) OnHttpRequestHeaders(numHeaders int, endOfStream bool) t
 		{"content-type", "application/json"},
 	}
 
-	calloutID, err := proxywasm.DispatchHttpCall(
+	// DispatchHttpCall in v0.24.0 takes a callback function
+	_, err = proxywasm.DispatchHttpCall(
 		jwtVendingServiceCluster,
 		headers,
 		[]byte(requestBody),
 		nil,
 		5000, // 5 second timeout
+		ctx.handleJWTResponse,
 	)
 
 	if err != nil {
@@ -96,16 +97,15 @@ func (ctx *httpContext) OnHttpRequestHeaders(numHeaders int, endOfStream bool) t
 		return types.ActionContinue
 	}
 
-	ctx.calloutID = calloutID
-	proxywasm.LogInfof("[Client WASM] Dispatched HTTP call to JWT vending service (callout ID: %d)", calloutID)
+	proxywasm.LogInfof("[Client WASM] Dispatched HTTP call to JWT vending service")
 
 	// Pause the request until we get the JWT token
 	return types.ActionPause
 }
 
-// OnHttpCallResponse is called when the HTTP callout response is received
-func (ctx *httpContext) OnHttpCallResponse(numHeaders, bodySize, numTrailers int) {
-	proxywasm.LogInfof("[Client WASM] Received HTTP callout response (headers: %d, body: %d)", numHeaders, bodySize)
+// handleJWTResponse is called when the HTTP callout response is received
+func (ctx *httpContext) handleJWTResponse(numHeaders, bodySize, numTrailers int) {
+	proxywasm.LogInfof("[Client WASM] Received JWT response (headers: %d, body: %d)", numHeaders, bodySize)
 
 	// Get response body
 	responseBody, err := proxywasm.GetHttpCallResponseBody(0, bodySize)
