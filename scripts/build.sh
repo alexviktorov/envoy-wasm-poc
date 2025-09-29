@@ -79,33 +79,38 @@ build_service() {
   echo ""
 }
 
-# Function to build a WASM module
+# Function to build a Rust WASM module
 build_wasm() {
   local module_name=$1
   local module_path=$2
 
-  echo -e "${YELLOW}Building WASM module: ${module_name}...${NC}"
+  echo -e "${YELLOW}Building Rust WASM module: ${module_name}...${NC}"
 
-  # Check if TinyGo is installed
-  if ! command -v tinygo &> /dev/null; then
-    echo -e "${RED}Error: TinyGo is not installed. Please install from https://tinygo.org/getting-started/install/${NC}"
+  # Check if Rust/Cargo is installed
+  if ! command -v cargo &> /dev/null; then
+    echo -e "${RED}Error: Rust/Cargo is not installed. Please install from https://rustup.rs/${NC}"
     exit 1
+  fi
+
+  # Check if wasm32-wasip1 target is installed
+  if ! rustup target list --installed | grep -q wasm32-wasip1; then
+    echo -e "${YELLOW}Installing wasm32-wasip1 target...${NC}"
+    rustup target add wasm32-wasip1
   fi
 
   cd "$module_path"
 
-  # Download dependencies
-  go mod download
+  # Build WASM module with Rust
+  cargo build --target wasm32-wasip1 --release
 
-  # Build WASM module with TinyGo wasip1 target
-  tinygo build -target=wasip1 -scheduler=none -o "${module_name}.wasm" .
+  local wasm_file="target/wasm32-wasip1/release/${module_name//-/_}.wasm"
 
-  if [ ! -f "${module_name}.wasm" ]; then
-    echo -e "${RED}Error: Failed to build ${module_name}.wasm${NC}"
+  if [ ! -f "$wasm_file" ]; then
+    echo -e "${RED}Error: Failed to build ${wasm_file}${NC}"
     exit 1
   fi
 
-  echo -e "${GREEN}✓ ${module_name}.wasm built successfully ($(du -h ${module_name}.wasm | cut -f1))${NC}"
+  echo -e "${GREEN}✓ ${module_name}.wasm built successfully ($(du -h ${wasm_file} | cut -f1))${NC}"
 
   cd - > /dev/null
   echo ""
@@ -124,13 +129,18 @@ if ! command -v go &> /dev/null; then
   exit 1
 fi
 
+if ! command -v cargo &> /dev/null; then
+  echo -e "${RED}Error: Rust/Cargo is not installed. Please install from https://rustup.rs/${NC}"
+  exit 1
+fi
+
 echo -e "${GREEN}✓ Prerequisites met${NC}"
 echo ""
 
-# Build WASM modules
-echo -e "${GREEN}=== Building WASM Modules ===${NC}"
-build_wasm "client-filter" "wasm/client-filter"
-build_wasm "server-filter" "wasm/server-filter"
+# Build WASM modules (Rust)
+echo -e "${GREEN}=== Building Rust WASM Modules ===${NC}"
+build_wasm "client-filter-rust" "wasm/client-filter-rust"
+build_wasm "server-filter-rust" "wasm/server-filter-rust"
 
 # Build Go services
 echo -e "${GREEN}=== Building Services ===${NC}"
@@ -141,9 +151,9 @@ build_service "service-b" "services/service-b"
 
 # Summary
 echo -e "${GREEN}=== Build Summary ===${NC}"
-echo -e "WASM modules:"
-echo -e "  • client-filter.wasm - $(ls -lh wasm/client-filter/client-filter.wasm 2>/dev/null | awk '{print $5}' || echo 'not found')"
-echo -e "  • server-filter.wasm - $(ls -lh wasm/server-filter/server-filter.wasm 2>/dev/null | awk '{print $5}' || echo 'not found')"
+echo -e "Rust WASM modules:"
+echo -e "  • client-filter-rust.wasm - $(ls -lh wasm/client-filter-rust/target/wasm32-wasip1/release/client_filter_rust.wasm 2>/dev/null | awk '{print $5}' || echo 'not found')"
+echo -e "  • server-filter-rust.wasm - $(ls -lh wasm/server-filter-rust/target/wasm32-wasip1/release/server_filter_rust.wasm 2>/dev/null | awk '{print $5}' || echo 'not found')"
 echo ""
 echo -e "Docker images:"
 docker images | grep -E "(jwt-vending-service|sgnl-pdp-service|service-a|service-b)" | head -4
@@ -153,5 +163,5 @@ if [ "$PUSH" = true ]; then
   echo -e "${GREEN}✓ All images built and pushed successfully!${NC}"
 else
   echo -e "${GREEN}✓ All images built successfully!${NC}"
-  echo -e "${YELLOW}Tip: Use --push --project YOUR_PROJECT_ID to push to GCR${NC}"
+  echo -e "${YELLOW}Tip: Use --push --project YOUR_PROJECT_ID to push to Artifact Registry${NC}"
 fi

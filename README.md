@@ -34,10 +34,11 @@ This project demonstrates a complete Policy Enforcement Point (PEP) implementati
 
 ## Technology Stack
 
-- **Language**: Go (services), TinyGo (WASM modules)
+- **Language**: Go (services), Rust (WASM modules)
 - **Service Mesh**: HashiCorp Consul with Envoy sidecars
-- **Policy Enforcement**: Envoy WASM filters
-- **Infrastructure**: GKE (Google Kubernetes Engine)
+- **Policy Enforcement**: Envoy WASM filters (proxy-wasm-rust-sdk v0.2)
+- **Envoy Version**: v1.35+ (for WASM support)
+- **Infrastructure**: GKE (Google Kubernetes Engine) or Docker Compose (local)
 - **IaC**: Terraform
 
 ## Prerequisites
@@ -45,9 +46,9 @@ This project demonstrates a complete Policy Enforcement Point (PEP) implementati
 ### For Local Testing (Docker Compose)
 
 - Docker Desktop or Docker Engine
-- `docker compose`
-- `go` >= 1.21
-- `tinygo` >= 0.30
+- `docker compose` v2+
+- `rust` and `cargo` (for building WASM modules)
+- `go` >= 1.21 (for Go services)
 - `curl` and `jq` (for testing)
 
 ### For GKE Deployment
@@ -57,8 +58,8 @@ This project demonstrates a complete Policy Enforcement Point (PEP) implementati
 - `kubectl`
 - `helm` >= 3.0
 - `docker`
-- `go` >= 1.21
-- `tinygo` >= 0.30
+- `rust` and `cargo` (for building WASM modules)
+- `go` >= 1.21 (for Go services)
 - `consul` CLI (optional, for debugging)
 
 ## Project Structure
@@ -88,12 +89,14 @@ This project demonstrates a complete Policy Enforcement Point (PEP) implementati
 │       ├── Dockerfile
 │       └── go.mod
 ├── wasm/
-│   ├── client-filter/         # WASM module for Service A
-│   │   ├── main.go
-│   │   └── go.mod
-│   └── server-filter/         # WASM module for Service B
-│       ├── main.go
-│       └── go.mod
+│   ├── client-filter-rust/    # Rust WASM module for Service A (JWT injection)
+│   │   ├── src/lib.rs
+│   │   ├── Cargo.toml
+│   │   └── target/wasm32-wasip1/release/client_filter_rust.wasm
+│   └── server-filter-rust/    # Rust WASM module for Service B (JWT validation)
+│       ├── src/lib.rs
+│       ├── Cargo.toml
+│       └── target/wasm32-wasip1/release/server_filter_rust.wasm
 ├── k8s/
 │   ├── consul-values.yaml     # Consul Helm chart values
 │   ├── jwt-vending.yaml       # JWT service deployment
@@ -105,6 +108,29 @@ This project demonstrates a complete Policy Enforcement Point (PEP) implementati
     ├── deploy.sh              # Deploy to GKE
     └── test.sh                # Run end-to-end tests
 ```
+
+## WASM Implementation: Why Rust?
+
+This project uses **Rust** with **proxy-wasm-rust-sdk v0.2** for the WASM filters instead of Go. Here's why:
+
+### Rust Advantages ✅
+
+- **Production-ready**: proxy-wasm-rust-sdk is mature and battle-tested
+- **Full Envoy compatibility**: Works with Envoy v1.28+ without issues
+- **Proper lifecycle management**: No initialization conflicts with Envoy's sandbox
+- **Smaller binary size**: ~270KB vs 2MB+ for Go
+- **Better performance**: Lower memory overhead and faster execution
+
+### Go Limitations ❌
+
+The proxy-wasm-go-sdk has significant issues:
+
+- **Restricted callback errors**: Calls host APIs during module initialization (`_start`/`init()`) which Envoy's sandbox restricts
+- **WASI compatibility**: Older Envoy versions don't support all WASI functions Go requires
+- **Alpha status**: SDK is marked as alpha and not production-ready
+- **Larger binaries**: Native Go WASM produces 2MB+ files vs Rust's ~270KB
+
+**Note**: Go WASM filters are included in `wasm/test-go-native/` and `wasm/test-minimal/` for reference, but they fail to load in Envoy. The working Rust implementation is in `wasm/client-filter-rust/` and `wasm/server-filter-rust/`.
 
 ## Quick Start
 
