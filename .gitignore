@@ -19,11 +19,13 @@ services/*/sgnl-pdp-service
 services/*/service-a
 services/*/service-b
 
-# WASM build artifacts
-*.wasm
-
-# Rust build artifacts
-wasm/*/target/
+# Rust build artifacts (keep only release WASM files for Docker)
+wasm/*/target/debug/
+wasm/*/target/wasm32-wasip1/debug/
+wasm/*/target/wasm32-wasip1/release/*
+!wasm/*/target/wasm32-wasip1/release/*.wasm
+wasm/*/target/.rustc_info.json
+wasm/*/target/CACHEDIR.TAG
 wasm/*/Cargo.lock
 
 # Terraform
