@@ -20,12 +20,11 @@ services/*/service-a
 services/*/service-b
 
 # Rust build artifacts (keep only release WASM files for Docker)
-wasm/*/target/debug/
-wasm/*/target/wasm32-wasip1/debug/
+wasm/*/target/
+!wasm/*/target/wasm32-wasip1/
+!wasm/*/target/wasm32-wasip1/release/
 wasm/*/target/wasm32-wasip1/release/*
 !wasm/*/target/wasm32-wasip1/release/*.wasm
-wasm/*/target/.rustc_info.json
-wasm/*/target/CACHEDIR.TAG
 wasm/*/Cargo.lock
 
 # Terraform
