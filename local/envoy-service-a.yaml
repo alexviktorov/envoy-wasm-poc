@@ -62,6 +62,7 @@ static_resources:
                       config:
                         name: "client_filter"
                         root_id: "client_filter"
+                        fail_open: true  # Don't fail if WASM doesn't load
                         vm_config:
                           vm_id: "client_filter_vm"
                           runtime: "envoy.wasm.runtime.v8"
@@ -69,6 +70,9 @@ static_resources:
                             local:
                               filename: "/etc/envoy/client-filter.wasm"
                           allow_precompiled: true
+                          environment_variables:
+                            host_env_keys:
+                              - "WASMTIME_BACKTRACE_DETAILS"
                   - name: envoy.filters.http.router
                     typed_config:
                       "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router

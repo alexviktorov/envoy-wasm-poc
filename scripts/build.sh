@@ -97,8 +97,8 @@ build_wasm() {
   # Download dependencies
   go mod download
 
-  # Build WASM module
-  tinygo build -o "${module_name}.wasm" -scheduler=none -target=wasi .
+  # Build WASM module with TinyGo wasip1 target
+  tinygo build -target=wasip1 -scheduler=none -o "${module_name}.wasm" .
 
   if [ ! -f "${module_name}.wasm" ]; then
     echo -e "${RED}Error: Failed to build ${module_name}.wasm${NC}"

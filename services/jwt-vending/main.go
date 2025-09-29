@@ -3,7 +3,9 @@ package main
 import (
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
 	"log"
 	"net/http"
 	"time"
@@ -158,15 +160,14 @@ func handlePublicKey(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Export public key as PEM
-	pubKeyBytes, err := jwt.MarshalRSAPublicKey(validPublicKey)
-	if err != nil {
-		log.Printf("Error marshaling public key: %v", err)
-		http.Error(w, "Failed to export public key", http.StatusInternalServerError)
-		return
-	}
+	pubKeyBytes := x509.MarshalPKCS1PublicKey(validPublicKey)
+	pubKeyPEM := pem.EncodeToMemory(&pem.Block{
+		Type:  "RSA PUBLIC KEY",
+		Bytes: pubKeyBytes,
+	})
 
 	w.Header().Set("Content-Type", "application/x-pem-file")
-	w.Write(pubKeyBytes)
+	w.Write(pubKeyPEM)
 }
 
 // handleHealth returns health status

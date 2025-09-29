@@ -34,6 +34,7 @@ static_resources:
                       config:
                         name: "server_filter"
                         root_id: "server_filter"
+                        fail_open: true  # Don't fail if WASM doesn't load
                         vm_config:
                           vm_id: "server_filter_vm"
                           runtime: "envoy.wasm.runtime.v8"
